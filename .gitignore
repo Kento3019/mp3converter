@@ -1,0 +1,13 @@
+node_modules/
+dist/
+storage/
+*.log
+.env
+.env.local
+.DS_Store
+Thumbs.db
+coverage/
+vitest-result.json
+tests/fixtures/*.mp4
+tests/fixtures/*.mp3
+tests/fixtures/*.m4a

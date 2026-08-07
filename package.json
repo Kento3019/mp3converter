@@ -1,0 +1,45 @@
+{
+  "name": "mp3converter",
+  "version": "0.1.0",
+  "private": true,
+  "description": "ローカル常駐の MP3 コンバーター（動画ファイル → MP3 / YouTube → MP3）",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "concurrently -k --raw -n server,client -c cyan,magenta \"npm:dev:server\" \"npm:dev:client\"",
+    "dev:server": "node --import tsx --watch server/index.ts",
+    "dev:client": "vite",
+    "build": "npm run build:server && npm run build:client",
+    "build:server": "tsc -p tsconfig.build.json",
+    "build:client": "vite build",
+    "start": "node dist/server/index.js",
+    "doctor": "tsx scripts/doctor.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p client/tsconfig.json --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "test:fixtures": "tsx tests/fixtures/generate.ts"
+  },
+  "dependencies": {
+    "@hono/node-server": "^2.1.0",
+    "hono": "^4.13.1",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "youtube-dl-exec": "^3.1.12",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.0",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "@vitejs/plugin-react": "^5.1.0",
+    "@vitest/coverage-v8": "^3.2.4",
+    "concurrently": "^9.2.1",
+    "tsx": "^4.23.10",
+    "typescript": "^5.9.3",
+    "vite": "^8.2.1",
+    "vitest": "^3.2.4"
+  }
+}
