@@ -21,7 +21,7 @@
 | 7 | cleanup + テスト + カバレッジ | ✅ 完了 | 133 テスト通過。lines 83.8% / funcs 88.7% / branch 82.0%（閾値クリア） |
 | 8 | macOS 導入一式 | ⚠️ 実機未検証 | 全スクリプト `bash -n` 通過、テンプレ置換をドライラン検証、アイコン生成を実行確認 |
 | 9 | README + レビュー | ✅ 完了 | 利用者編 / 開発者編を記載。指摘 4 件をすべて修正し再検証 |
-| 10 | Windows 11 導入一式 | ⚠️ 実機で一部検証 | 実ユーザが Windows 11 実機で `setup.ps1` を実行し、`npm run build` が npm の既知の不具合（optional dependencies、[npm/cli#4828](https://github.com/npm/cli/issues/4828)）で失敗することを確認。`setup.ps1`/`setup.sh` 双方に自動リカバリ（`node_modules` + `package-lock.json` を作り直して再試行）を追加。**この自動リカバリ自体はまだ実機で再検証していない** |
+| 10 | Windows 11 導入一式 | ⚠️ 実機で問題発見・修正中 | 実ユーザが Windows 11 実機で `setup.ps1` を 2 回実行し、2 件の実バグを発見・修正。**未再検証**。詳細は下記「Windows 実機で見つかった不具合」 |
 
 ## レビューでの指摘と対応
 
@@ -59,13 +59,21 @@
 - [ ] `./scripts/macos/uninstall.sh` → 常駐停止・アイコン消滅、**変換済み MP3 は残る**
 - [ ] `~/Library/Logs/mp3converter/error.log` に想定外のエラーが出ていない
 
+## Windows 実機で見つかった不具合
+
+開発環境（Linux/WSL2）には PowerShell が無く、`setup.ps1` は一度も実行できないまま
+最初のバージョンを用意した。実ユーザに実機で試してもらったところ、2 回の実行で
+2 件の実バグが見つかった。
+
+| # | 症状 | 原因 | 対応 | 再検証 |
+|---|---|---|---|---|
+| 1 | `npm run build` が `vite build` の `rolldown` ネイティブバインディング読み込みで失敗 | npm の既知の不具合（optional dependencies、[npm/cli#4828](https://github.com/npm/cli/issues/4828)）。`package-lock.json` に Windows 用バイナリが記載されていても `npm ci` が実際にはインストールしないことがある | `node_modules` + `package-lock.json` を作り直して `npm install` から再試行する自動リカバリを追加（`setup.ps1`/`setup.sh` 両方） | ⚠️ 未検証（下の #2 に阻まれて発動しなかった） |
+| 2 | 上のリカバリを追加した版を再実行しても、**リカバリに入る前に**スクリプトが無言で終了 | `$ErrorActionPreference = 'Stop'` を設定したまま `npm run build 2>&1 \| Tee-Object` で stderr を結合していた。Windows PowerShell は結合された stderr 行を `ErrorRecord` として扱うため、`node` の失敗時スタックトレース（stderr）1 行目で即座にスクリプト全体が終了していた（`Die` すら呼ばれない） | 該当呼び出しの間だけ `$ErrorActionPreference = 'Continue'` に戻すよう修正 | ⚠️ 未検証 |
+| （付随） | `npm warn EBADENGINE`（vite/rolldown が要求する `>=22.12.0` に対し、winget 導入の Node が `22.11.0`） | winget の `OpenJS.NodeJS.LTS` マニフェスト更新が遅れていた可能性 | Node バージョンを確認し、`22.12.0` 未満なら `winget upgrade` で更新する処理を追加 | ⚠️ 未検証。#1 の根本原因かは不明（このバージョン不一致と無関係に #1 の npm バグ自体は既知） |
+
 ## Windows 11 実機で必ず確認すること
 
-今回追加した Windows 対応は、この開発環境（Linux/WSL2）では PowerShell を
-一切実行できず、静的なコードレビューのみで用意した。特に次の点は
-実機でしか確認できないため、優先して検証すること。
-
-- [ ] `.\scripts\windows\setup.ps1` を再実行し、`npm run build` の自動リカバリ（node_modules + package-lock.json の作り直し）が最後まで通る（[npm/cli#4828](https://github.com/npm/cli/issues/4828) で実機にて 1 度失敗を確認済み。自動リカバリのコードパス自体は未検証）
+- [ ] `.\scripts\windows\setup.ps1` を再実行し、上の 3 件の修正がすべて機能して最後まで通る
 - [ ] `.\scripts\windows\setup.ps1` が**依存が無い状態から**完走し、最後にブラウザが開く（管理者権限を付けずに実行）
 - [ ] `winget install` が個々に UAC を求めてきても、その後の処理が続行する
 - [ ] タスクスケジューラの繰り返しトリガー（`Repetition.Duration = ''`）が本当に無期限に効くか（`Register-ScheduledTask` 実行後に `Get-ScheduledTask MP3Converter | fl *` で `Repetition` を確認）

@@ -85,7 +85,24 @@ if (-not $NodeCmd) {
   Die '入れた直後ですが Node.js が見つかりません。PowerShell を開き直してもう一度実行してください。'
 }
 $NodeBin = $NodeCmd.Source
-Ok "Node.js: $NodeBin ($(& $NodeBin --version))"
+$NodeVersion = (& $NodeBin --version).TrimStart('v')
+
+# winget の OpenJS.NodeJS.LTS はマニフェストの更新が遅れ、
+# vite/rolldown が要求する最低版（22.12.0）より古い Node が入ることがある
+# （実機で node 22.11.0 のとき `npm warn EBADENGINE` と共に発生を確認）。
+$MinNodeVersion = [Version]'22.12.0'
+if ([Version]$NodeVersion -lt $MinNodeVersion) {
+  Info "Node.js が古い（$NodeVersion）ので更新します（winget upgrade OpenJS.NodeJS.LTS）…"
+  winget upgrade --id OpenJS.NodeJS.LTS -e --silent --accept-package-agreements --accept-source-agreements
+  Update-SessionPath
+  $NodeCmd = Get-Command node -ErrorAction SilentlyContinue
+  if ($NodeCmd) { $NodeBin = $NodeCmd.Source }
+  $NodeVersion = (& $NodeBin --version).TrimStart('v')
+  if ([Version]$NodeVersion -lt $MinNodeVersion) {
+    Die "Node.js が $MinNodeVersion 未満のままです（現在: $NodeVersion）。`n`n  手動で次を実行してから、もう一度このスクリプトを実行してください。`n`n    winget upgrade --id OpenJS.NodeJS.LTS -e"
+  }
+}
+Ok "Node.js: $NodeBin ($NodeVersion)"
 
 # ------------------------------------------------------------ 3. アプリを組む
 
@@ -99,8 +116,16 @@ if (Test-Path (Join-Path $RepoDir 'package-lock.json')) {
 }
 if ($LASTEXITCODE -ne 0) { Die 'npm install に失敗しました。上のログを確認してください。' }
 
+# 2>&1 で結合した stderr は Windows PowerShell 上で ErrorRecord になる。
+# $ErrorActionPreference = 'Stop' のままだと、npm が stderr に何か書いただけで
+# （実際の失敗より前に）スクリプト全体が即座に終了してしまう
+# （このため一度、下の自動リカバリに一切入らず落ちた）。
+# この呼び出しの間だけ 'Continue' に戻し、直後に元へ戻す。
+$previousErrorActionPreference = $ErrorActionPreference
+$ErrorActionPreference = 'Continue'
 npm run build 2>&1 | Tee-Object -Variable buildOutput
 $buildExitCode = $LASTEXITCODE
+$ErrorActionPreference = $previousErrorActionPreference
 $buildLog = $buildOutput -join "`n"
 
 if ($buildExitCode -ne 0) {
