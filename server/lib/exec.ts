@@ -16,6 +16,13 @@ export interface RunOptions {
   onStderrLine?: (line: string) => void
   /** 呼び出し側から中断するための signal。 */
   signal?: AbortSignal
+  /**
+   * コンソールウィンドウを作らないか（既定 true）。
+   * ffmpeg/yt-dlp 向けの既定だが、GUI アプリ（explorer.exe 等）を
+   * 起動する呼び出しでは false にする。ドキュメント上 GUI サブシステムの
+   * プロセスには無視されるはずのフラグだが、念のため呼び出し側で選べるようにする。
+   */
+  windowsHide?: boolean
 }
 
 const DEFAULT_TIMEOUT_MS = 30_000
@@ -29,12 +36,19 @@ export function run(
   args: readonly string[],
   options: RunOptions = {},
 ): Promise<RunResult> {
-  const { timeoutMs = DEFAULT_TIMEOUT_MS, cwd, onStdoutLine, onStderrLine, signal } = options
+  const {
+    timeoutMs = DEFAULT_TIMEOUT_MS,
+    cwd,
+    onStdoutLine,
+    onStderrLine,
+    signal,
+    windowsHide = true,
+  } = options
 
   return new Promise<RunResult>((resolve, reject) => {
     const child = spawn(cmd, [...args], {
       shell: false,
-      windowsHide: true,
+      windowsHide,
       ...(cwd ? { cwd } : {}),
       ...(signal ? { signal } : {}),
     })

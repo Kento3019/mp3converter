@@ -30,13 +30,21 @@ export async function revealInFileManager(targetPath: string): Promise<void> {
     // パスに空白を含む場合 Windows の自動クォートが「"/select,C:\...\My File.mp3"」の
     // ように /select, ごと括ってしまい、explorer 側の独自パーサが解釈できないことがある。
     const explorer = join(process.env.SystemRoot ?? 'C:\\Windows', 'explorer.exe')
-    // explorer は成功時も非 0 を返すことがあるため終了コードは見ない。
-    // ただし spawn 自体の失敗（ENOENT 等）は握りつぶさずログに残す
-    // （以前は catch で完全に握りつぶしており、失敗してもクライアントには
-    // revealed: true が返っていた）。
-    await run(explorer, ['/select,', targetPath], { timeoutMs: 10_000 }).catch((error: unknown) => {
+    try {
+      // windowsHide は本来 GUI サブシステムのプロセスには無視される仕様だが、
+      // explorer.exe だけは例外にして切り分けられるようにする。
+      const result = await run(explorer, ['/select,', targetPath], {
+        timeoutMs: 10_000,
+        windowsHide: false,
+      })
+      // explorer は成功時も非 0 を返すことがあるため終了コードでは判定しないが、
+      // 「spawn は成功したのに窓が開かない」原因調査のためログには残す。
+      logger.info('explorer を起動', { code: result.code, stderr: result.stderr })
+    } catch (error) {
+      // spawn 自体の失敗（ENOENT 等）。以前はここを握りつぶしており、
+      // 失敗してもクライアントには revealed: true が返っていた。
       logger.warn('explorer の起動に失敗', error)
-    })
+    }
     return
   }
 
