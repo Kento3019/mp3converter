@@ -1,11 +1,11 @@
 # 実装ステータス
 
-最終更新: 2026-08-07
+最終更新: 2026-09-19
 
 ## 全体進捗
 
 ```
-█████████  9 / 9 フェーズ完了（Mac 実機での受け入れのみ残）
+██████████  10 / 10 フェーズ完了（Mac / Windows どちらも実機での受け入れのみ残）
 ```
 
 ## フェーズ別
@@ -21,6 +21,7 @@
 | 7 | cleanup + テスト + カバレッジ | ✅ 完了 | 133 テスト通過。lines 83.8% / funcs 88.7% / branch 82.0%（閾値クリア） |
 | 8 | macOS 導入一式 | ⚠️ 実機未検証 | 全スクリプト `bash -n` 通過、テンプレ置換をドライラン検証、アイコン生成を実行確認 |
 | 9 | README + レビュー | ✅ 完了 | 利用者編 / 開発者編を記載。指摘 4 件をすべて修正し再検証 |
+| 10 | Windows 11 導入一式 | ⚠️ 実機未検証 | 開発環境が Linux（WSL2）のため PowerShell 自体を実行できていない。静的レビューのみ。詳細は下記「Windows 実機で必ず確認すること」 |
 
 ## レビューでの指摘と対応
 
@@ -34,16 +35,19 @@
 
 ## 検証済みの環境
 
-| 項目 | 開発機（Windows 11） | 本番（Apple Silicon Mac） |
-|------|---------------------|--------------------------|
-| Node.js | v22.14.0 ✅ | 未検証（`setup.sh` が brew で導入） |
-| ffmpeg | 7.1.1（libmp3lame 有効） ✅ | 未検証（`setup.sh` が brew で導入） |
-| yt-dlp | 2026.07.04 ✅ | 未検証（`npm install` が取得） |
-| python3 | あり ✅ | 未検証（`setup.sh` が brew で導入） |
+| 項目 | 開発機（Windows 11 上の Linux/WSL2） | 本番（Apple Silicon Mac） | 本番（Windows 11 実機） |
+|------|--------------------------------------|--------------------------|--------------------------|
+| Node.js | 未検証（この環境に node が無く実行できない） | 未検証（`setup.sh` が brew で導入） | 未検証（`setup.ps1` が winget で導入） |
+| ffmpeg | 未検証 | 未検証（`setup.sh` が brew で導入） | 未検証（`setup.ps1` が winget で導入） |
+| yt-dlp | 未検証 | 未検証（`npm install` が取得） | 未検証（同梱 → 失敗時 winget にフォールバック） |
+| python3 | 未検証 | 未検証（`setup.sh` が brew で導入） | 未検証（`setup.ps1` が winget で導入） |
+
+> この会話ではサンドボックスに node/PowerShell が入っておらず、`npm run typecheck` /
+> `npm test` / `.ps1` の実行そのものができなかった。すべて静的レビューのみで、
+> 挙動は未確認。次にこのリポジトリを node の使える環境（あるいは実機）で開いたとき、
+> 最初に `npm run typecheck && npm test` を通すこと。
 
 ## Mac 実機で必ず確認すること
-
-Windows 上では原理的に検証できない項目。導入時にこの順で確認する。
 
 - [ ] `./scripts/macos/setup.sh` が**依存が無い状態から**完走し、最後にブラウザが開く
 - [ ] Mac を再起動 → ログインだけでサーバが常駐（`launchctl print gui/$(id -u)/com.local.mp3converter`）
@@ -55,6 +59,25 @@ Windows 上では原理的に検証できない項目。導入時にこの順で
 - [ ] `./scripts/macos/uninstall.sh` → 常駐停止・アイコン消滅、**変換済み MP3 は残る**
 - [ ] `~/Library/Logs/mp3converter/error.log` に想定外のエラーが出ていない
 
+## Windows 11 実機で必ず確認すること
+
+今回追加した Windows 対応は、この開発環境（Linux/WSL2）では PowerShell を
+一切実行できず、静的なコードレビューのみで用意した。特に次の点は
+実機でしか確認できないため、優先して検証すること。
+
+- [ ] `.\scripts\windows\setup.ps1` が**依存が無い状態から**完走し、最後にブラウザが開く（管理者権限を付けずに実行）
+- [ ] `winget install` が個々に UAC を求めてきても、その後の処理が続行する
+- [ ] タスクスケジューラの繰り返しトリガー（`Repetition.Duration = ''`）が本当に無期限に効くか（`Register-ScheduledTask` 実行後に `Get-ScheduledTask MP3Converter | fl *` で `Repetition` を確認）
+- [ ] Windows を再起動 → ログインだけでサーバが常駐（`Get-ScheduledTask -TaskName MP3Converter`）
+- [ ] スタートメニューのアイコンを押すとブラウザが開き、コンソールが一切ちらつかない（`launcher.vbs` → `launcher.ps1` の無表示実行）
+- [ ] MP4 をドロップ → 完成 → ［フォルダを開く］で `explorer /select,` がエクスプローラを開く
+- [ ] YouTube URL → ダウンロード中 → 変換中 → 完成
+- [ ] タスクマネージャーで node プロセスを強制終了 → 1 分以内に見張りトリガーで自動復帰する
+- [ ] `setup.ps1` を**もう一度**実行 → 二重登録されず正常終了（冪等性）
+- [ ] `.\scripts\windows\uninstall.ps1` → 常駐停止・ショートカット消滅、**変換済み MP3 は残る**
+- [ ] `%LOCALAPPDATA%\mp3converter\logs\error.log` に想定外のエラーが出ていない
+- [ ] `.ico` がスタートメニュー/タスクバーで正しく表示される（PNG フレーム埋め込み ICO の互換性確認）
+
 ## 決定事項
 
 - **Electron 不採用** — 未署名 `.app` の Gatekeeper 警告が非エンジニアには最大の障壁。`.app` は setup 時に Mac 上で生成し、quarantine 属性を付けない
@@ -65,10 +88,13 @@ Windows 上では原理的に検証できない項目。導入時にこの順で
 - **アップロードは生ボディ** — `multipart` だと 2GB がメモリに載る。ストリームで直接ディスクへ流す
 - **YouTube は 2 段構成** — 変換処理をファイル経路と共有（DRY）し、進捗を 0-50% / 50-100% に割る
 - API レスポンスは `{ success, data, error }` 形式に統一
+- **Windows はサービス化せずタスクスケジューラ（ログオントリガー）** — launchd の `gui/$UID` と同じ発想。Windows サービスは対話ユーザのプロファイル（`~/Music`）に素直に届かない
+- **Windows の常駐再起動はログオン + 1分間隔の繰り返しトリガー** — ネイティブの「失敗時再起動」は回数上限があり無期限にできない。`MultipleInstances = IgnoreNew` で多重起動は防ぐ
+- **アイコン生成ロジックを `scripts/shared/icon-render.mjs` に共通化** — macOS の `.icns`（1024px 1枚 → `sips` で縮小）と Windows の `.ico`（16/32/48/256px を直接描画して PNG フレームとして埋め込み）が同じ図形定義を使う
 
 ## 既知の制約
 
 - **画面の見た目はブラウザで未確認** — Playwright MCP のブラウザ拡張ブリッジが開発機で使えず、HTTP レベル（アセット 200 応答・ビルドサイズ）までの確認に留めた。初回起動時に目視すること
-- **Windows は開発・テスト専用** — 自動起動とインストーラは macOS のみ。`npm run dev` / `npm test` は Windows でも通る
+- **Windows 対応スクリプトは実機未検証** — 開発環境に PowerShell が無く、`setup.ps1`/`diagnose.ps1`/`uninstall.ps1`/タスクスケジューラ登録を一度も実行できていない。静的レビューのみ
 - **ジョブ一覧はメモリ上のみ** — サーバを再起動すると一覧は消える（変換済み MP3 は残る）。保持は最新 100 件まで
 - **同時変換は既定 2 本** — `.env` の `MAX_CONCURRENT_JOBS` で変更可。増やすと PC が重くなる

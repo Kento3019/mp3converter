@@ -18,7 +18,7 @@ export class ApiFailure extends Error {
 
 const NETWORK_ERROR: ApiError = {
   message: 'アプリとの通信ができませんでした。',
-  hint: 'アプリが動いていない可能性があります。Dock のアイコンをもう一度押してください。',
+  hint: 'アプリが動いていない可能性があります。アプリのアイコンをもう一度押してください。',
   action: 'retry',
 }
 

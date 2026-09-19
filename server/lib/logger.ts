@@ -3,7 +3,8 @@ import { describeError } from './errors.js'
 type Level = 'info' | 'warn' | 'error'
 
 /**
- * launchd の StandardOutPath / StandardErrorPath にそのまま流れる前提の最小ロガー。
+ * 常駐の仕組み（macOS: launchd の StandardOutPath/StandardErrorPath、
+ * Windows: run-server.ps1 のリダイレクト）にそのまま流れる前提の最小ロガー。
  * 常駐後に何が起きたか追えるよう、必ず時刻とレベルを付ける。
  */
 function write(level: Level, message: string, detail?: unknown): void {

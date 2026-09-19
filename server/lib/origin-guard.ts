@@ -36,7 +36,7 @@ const ALLOWED_ORIGINS = buildAllowedOrigins()
 function reject(): never {
   throw forbidden(
     'この操作は許可されていません。',
-    'MP3コンバーターの画面（Dock のアイコン）から操作してください。',
+    'MP3コンバーターの画面（アプリのアイコン）から操作してください。',
   )
 }
 

@@ -1,10 +1,11 @@
 import { accessSync, constants, existsSync } from 'node:fs'
+import { homedir } from 'node:os'
 import { delimiter, join } from 'node:path'
 import { config } from '../config.js'
 import { AppError } from '../lib/errors.js'
 import { run } from '../lib/exec.js'
 import { APP_ROOT } from '../lib/paths.js'
-import { type DepName, depFixHint, depLabel, depPurpose } from './messages.js'
+import { type DepName, depFixHint, depLabel, depPurpose, MP3_ENCODER_MISSING } from './messages.js'
 
 export interface DepStatus {
   name: DepName
@@ -26,13 +27,17 @@ export interface DepsReport {
 }
 
 /**
- * launchd から起動されたときは .zshrc の PATH が効かない。
- * Homebrew の場所を明示的に探索しないと「ターミナルでは動くのに常駐だと動かない」事故になる。
+ * launchd / タスクスケジューラから起動された直後は、インストーラが更新した
+ * PATH がまだセッションに反映されていないことがある。
+ * 各パッケージ管理の既定インストール先を明示的に探索し、
+ * 「ターミナルでは動くのに常駐だと動かない」事故を防ぐ。
  */
 const EXTRA_SEARCH_DIRS =
   process.platform === 'darwin'
     ? ['/opt/homebrew/bin', '/usr/local/bin', '/usr/bin', '/bin', '/opt/local/bin']
-    : []
+    : process.platform === 'win32'
+      ? [join(homedir(), 'AppData', 'Local', 'Microsoft', 'WinGet', 'Links')]
+      : []
 
 const EXECUTABLE_SUFFIXES = process.platform === 'win32' ? ['.exe', '.cmd', '.bat', ''] : ['']
 
@@ -114,9 +119,7 @@ async function inspectFfmpeg(): Promise<DepStatus> {
   return {
     ...base,
     canEncodeMp3,
-    hint: canEncodeMp3
-      ? null
-      : 'ffmpeg を入れ直してください（macOS: brew reinstall ffmpeg）。MP3 を作る機能が欠けています。',
+    hint: canEncodeMp3 ? null : `${MP3_ENCODER_MISSING.hint}MP3 を作る機能が欠けています。`,
   }
 }
 

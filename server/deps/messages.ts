@@ -58,5 +58,12 @@ export function depFixHint(name: DepName, platform: NodeJS.Platform = process.pl
 /** ffmpeg はあるが MP3 が作れない（libmp3lame 無し）ときの文言。 */
 export const MP3_ENCODER_MISSING = {
   message: '変換ソフトが MP3 に対応していません。',
-  hint: 'ffmpeg を入れ直してください（macOS: brew reinstall ffmpeg）。',
+  hint: 'ffmpeg を入れ直してください（macOS: brew reinstall ffmpeg / Windows: winget upgrade Gyan.FFmpeg）。',
 } as const
+
+/** 同梱でない yt-dlp（パッケージ管理下）を手動で更新する方法。 */
+export function ytdlpUpdateHint(platform: NodeJS.Platform = process.platform): string {
+  if (platform === 'darwin') return 'ターミナルで brew upgrade yt-dlp を実行してください。'
+  if (platform === 'win32') return 'PowerShell で winget upgrade yt-dlp.yt-dlp を実行してください。'
+  return 'パッケージ管理ソフトで yt-dlp を更新してください。'
+}

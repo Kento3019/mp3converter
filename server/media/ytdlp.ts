@@ -3,6 +3,7 @@ import { dirname, join } from 'node:path'
 import { z } from 'zod'
 import { config } from '../config.js'
 import { requireBinary, resolveBinary } from '../deps/detect.js'
+import { ytdlpUpdateHint } from '../deps/messages.js'
 import { AppError, internal } from '../lib/errors.js'
 import { run } from '../lib/exec.js'
 import { logger } from '../lib/logger.js'
@@ -144,12 +145,12 @@ export async function selfUpdate(): Promise<{ updated: boolean; message: string 
     return { updated: false, message: 'YouTube 取得ソフトが見つかりませんでした。' }
   }
 
-  // Homebrew などパッケージ管理下のバイナリは -U を拒否する。
+  // Homebrew / winget などパッケージ管理下のバイナリは -U を拒否する。
   // 無駄に失敗ログを出さず、正しい更新方法を伝える。
   if (!isBundled(ytdlp)) {
     return {
       updated: false,
-      message: 'このパソコンでは自動更新できません。ターミナルで brew upgrade yt-dlp を実行してください。',
+      message: `このパソコンでは自動更新できません。${ytdlpUpdateHint()}`,
     }
   }
 

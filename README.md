@@ -1,7 +1,7 @@
 # MP3コンバーター
 
 動画ファイルや YouTube から、音声だけを取り出して MP3 にするツール。
-Mac の中だけで動く。インターネットに何かを送ることはない。
+Mac / Windows 11 の中だけで動く。インターネットに何かを送ることはない。
 
 ---
 
@@ -11,12 +11,16 @@ Mac の中だけで動く。インターネットに何かを送ることはな�
 
 ## はじめかた
 
-Dock（画面の下のバー）にある紫色の音符のアイコンを押す。
+紫色の音符のアイコンを押す。
+
+- **Mac**: Dock（画面の下のバー）にあるアイコンを押す
+- **Windows**: スタートメニューまたはタスクバーにあるアイコンを押す
 
 それだけで画面が開く。パソコンを起動しておけば、いつでもすぐ使える。
 
-> アイコンが Dock に無いときは、Launchpad（ロケットのアイコン）を開いて
-> 「MP3コンバーター」を探し、Dock にドラッグしておく。
+> アイコンが見当たらないときは、
+> **Mac** は Launchpad（ロケットのアイコン）を開いて「MP3コンバーター」を探し Dock にドラッグする。
+> **Windows** はスタートメニューで「MP3コンバーター」を検索し、タスクバーにピン留めする。
 
 ## 動画ファイルから MP3 を作る
 
@@ -60,7 +64,7 @@ Dock（画面の下のバー）にある紫色の音符のアイコンを押す�
 | YouTube から取得できませんでした | **［更新して再試行］** を押す。これで直ることが多い |
 | この動画には音声が入っていません | 別の動画で試す |
 | この動画は非公開のため取得できません | 公開されている動画を選ぶ |
-| アプリとの通信ができませんでした | 画面を閉じて、Dock のアイコンをもう一度押す |
+| アプリとの通信ができませんでした | 画面を閉じて、アプリのアイコンをもう一度押す |
 | 動かすために足りないものがあります（赤い帯） | 導入した人に、赤い帯に書いてある文章をそのまま伝える |
 
 それでも直らないときは、パソコンを再起動してからもう一度試す。
@@ -80,10 +84,12 @@ Dock（画面の下のバー）にある紫色の音符のアイコンを押す�
 - **画面**: React + Vite。同じサーバが配信する
 - **変換**: `ffmpeg` を直接 `spawn`（`-progress pipe:1` で進捗を取得）
 - **YouTube**: `yt-dlp`（`youtube-dl-exec` が同梱バイナリを取得）。起動時と 24 時間ごとに自己更新
-- **常駐**: launchd の LaunchAgent。ログイン時に起動し、落ちたら自動復帰
-- **ランチャ**: セットアップ時に Mac 上で生成する `.app`。**ローカル生成なので Gatekeeper の警告が出ない**
+- **常駐**: Mac は launchd の LaunchAgent。Windows はタスクスケジューラのログオントリガー。どちらもログイン時に起動し、落ちたら自動復帰
+- **ランチャ**: セットアップ時にその場で生成するアイコン。Mac は `.app`（**ローカル生成なので Gatekeeper の警告が出ない**）、Windows はスタートメニューのショートカット
 
-## 導入（Apple Silicon / Intel Mac 共通）
+## 導入
+
+### Mac（Apple Silicon / Intel 共通）
 
 ```bash
 git clone <このリポジトリ> ~/apps/mp3converter
@@ -108,7 +114,7 @@ cd ~/apps/mp3converter
 > Homebrew 自体は自動インストールしない。管理者パスワードの入力が必要なため、
 > 未導入の場合は案内を出して停止する。
 
-## 動作確認
+#### 動作確認
 
 ```bash
 # 常駐しているか
@@ -125,7 +131,7 @@ tail -f ~/Library/Logs/mp3converter/server.log
 tail -f ~/Library/Logs/mp3converter/error.log
 ```
 
-## 起動できないとき
+#### 起動できないとき
 
 まず状況をまとめて出す。何も書き換えないので安全。
 
@@ -135,7 +141,7 @@ tail -f ~/Library/Logs/mp3converter/error.log
 
 「要修正」「なし」が出た項目が原因。多くは `setup.sh` の再実行（**sudo なし**）で直る。
 
-### よくある原因
+##### よくある原因
 
 | 症状 | 原因 | 直し方 |
 |---|---|---|
@@ -147,7 +153,7 @@ tail -f ~/Library/Logs/mp3converter/error.log
 | `Bootstrap failed: 5: Input/output error` | ①同じラベルが既に登録されている ②そのラベルが `disable` されている ③**plist が group/other 書き込み可**（`chmod 777` などにすると launchd が拒否する。正しくは `644`） | `setup.sh` が 3 つとも自動で潰す。手動なら下の「手で直す」を実行 |
 | ターミナルでは動くのに常駐だと ffmpeg が見つからない | launchd 配下では `.zshrc` の PATH が効かない | plist に PATH を明示注入済み。`setup.sh` を再実行して plist を作り直す |
 
-### 手で直す（登録だけが失敗する場合）
+##### 手で直す（登録だけが失敗する場合）
 
 ```bash
 LABEL=com.local.mp3converter
@@ -164,19 +170,96 @@ launchctl print gui/$(id -u)/$LABEL | head -20    # active count = 1 になれ�
 `plist` の権限は **`-rw-r--r--`（644）／持ち主は自分**でなければならない。
 `chmod 777` にすると launchd は読み込みを拒否する。
 
-### やってはいけないこと
+#### やってはいけないこと
 
 **`sudo` を付けて `npm install` / `npm run dev` / `setup.sh` を実行しない。**
 このアプリはあなたのユーザ権限で常駐する。root で入れると所有者が変わり、自動起動できなくなる。
 `setup.sh` は root で起動された場合その場で停止する。
 
-## 取り外し
+#### 取り外し
 
 ```bash
 ./scripts/macos/uninstall.sh
 ```
 
 常駐を解除し、`.app` と plist を消す。**変換済みの MP3 は消さない**。
+
+### Windows 11
+
+PowerShell（管理者権限は**不要**。むしろ使わない）で実行する。
+
+```powershell
+git clone <このリポジトリ> ~\apps\mp3converter
+cd ~\apps\mp3converter
+powershell -ExecutionPolicy Bypass -File .\scripts\windows\setup.ps1
+```
+
+`setup.ps1` がやること:
+
+1. `winget` の有無を確認（無ければ Microsoft Store の「アプリ インストーラー」更新を案内して停止）
+2. `node` / `ffmpeg` / `python` を確認し、**足りないものだけ** `winget install`
+3. `npm ci` → `npm run build`
+4. yt-dlp が取得できたかを検証（同梱で使えなければ `winget install yt-dlp.yt-dlp` にフォールバック）
+5. `npm run doctor` で最終確認
+6. `~\Music\MP3コンバーター\` と `%LOCALAPPDATA%\mp3converter\logs\` を作成
+7. `%LOCALAPPDATA%\mp3converter\` にアイコン（.ico）と設定（PORT / HOST / node の実パス）を生成
+8. スタートメニューにショートカットを作成
+9. タスクスケジューラにログオントリガーを登録し、起動を確認してブラウザを開く
+
+**冪等**。何度実行しても二重登録されない。更新も `git pull` してから再実行するだけ。
+
+> 管理者として実行すると停止する。このアプリはあなたのユーザ権限で常駐するため。
+> `winget` 自体のインストール（各パッケージの導入時）は必要に応じて個別に確認（UAC）が出ることがある。
+
+#### 動作確認
+
+```powershell
+# 常駐しているか
+Get-ScheduledTask -TaskName MP3Converter | Get-ScheduledTaskInfo
+
+# 応答しているか
+Invoke-WebRequest http://127.0.0.1:5487/api/health -UseBasicParsing
+
+# 必要なソフトが揃っているか
+npm run doctor
+
+# ログ
+Get-Content "$env:LOCALAPPDATA\mp3converter\logs\server.log" -Wait
+Get-Content "$env:LOCALAPPDATA\mp3converter\logs\error.log" -Wait
+```
+
+#### 起動できないとき
+
+まず状況をまとめて出す。何も書き換えないので安全。
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\windows\diagnose.ps1
+```
+
+「なし」が出た項目が原因。多くは `setup.ps1` の再実行（**管理者権限なし**）で直る。
+
+##### よくある原因
+
+| 症状 | 原因 | 直し方 |
+|---|---|---|
+| アイコンで「セットアップが終わっていません」 | `setup.ps1` が途中で止まっていてタスク未登録 | `setup.ps1` を再実行 |
+| `setup.ps1` が `winget が見つかりません` で止まる | 「アプリ インストーラー」が古い/未導入 | Microsoft Store で更新してから再実行 |
+| `setup.ps1` が yt-dlp で止まる | ダウンロードに失敗 | 現在は自動で `winget install yt-dlp.yt-dlp` にフォールバックする |
+| ターミナルでは動くのに常駐だと ffmpeg / node が見つからない | `winget` install 直後は PATH がそのセッションに反映されない、または常駐が別セッションで PATH を再構成できていない | node の実パスは `%LOCALAPPDATA%\mp3converter\env.ps1` に固定済み。ffmpeg/yt-dlp は `setup.ps1` を再実行して PATH を確定させる |
+| `.ps1 を実行できません（実行ポリシー）` | Windows の既定ポリシーがスクリプト実行を止めている | `-ExecutionPolicy Bypass` を付けて実行する（上記コマンドの通り）。システム全体のポリシーは変更しない |
+| タスクの `LastTaskResult` が 0 以外 | node の異常終了、または `dist/server/index.js` 未ビルド | `npm run build` を実行してから `Start-ScheduledTask -TaskName MP3Converter` |
+
+タスクの実体は `MP3Converter` という名前でタスクスケジューラに登録される（フォルダはルート直下）。
+ログオン時に起動するトリガーに加え、1 分おきの「見張りトリガー」を持つ。動作中は多重起動しない
+（`MultipleInstances = IgnoreNew`）ため、落ちたときだけ最大 1 分以内に再起動する。
+
+#### 取り外し
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\windows\uninstall.ps1
+```
+
+常駐（タスク）とショートカットを消す。**変換済みの MP3 は消さない**。
 
 ## 設定
 
@@ -186,12 +269,19 @@ launchctl print gui/$(id -u)/$LABEL | head -20    # active count = 1 になれ�
 |---|---|---|
 | `PORT` | `5487` | 待ち受けポート |
 | `HOST` | `127.0.0.1` | **変えないこと**。`0.0.0.0` にすると同じ LAN の他人から見える |
-| `OUTPUT_DIR` | `~/Music/MP3コンバーター` | MP3 の保存先 |
+| `OUTPUT_DIR` | `~/Music/MP3コンバーター`（Windows も `Music` フォルダ配下） | MP3 の保存先 |
 | `MAX_UPLOAD_BYTES` | `2147483648`（2GB） | アップロード上限 |
 | `MAX_CONCURRENT_JOBS` | `2` | 同時変換数。増やすと PC が重くなる |
 | `RETENTION_HOURS` | `24` | 一時ファイルの保持時間 |
 | `YTDLP_UPDATE_INTERVAL_HOURS` | `24` | yt-dlp の自動更新間隔。`0` で無効 |
 | `FFMPEG_PATH` / `FFPROBE_PATH` / `YTDLP_PATH` | 空 | 自動検出を上書きしたい場合のみ |
+
+> `setup.sh` / `setup.ps1` はセットアップ実行時点の `PORT` をそれぞれ plist /
+> `env.ps1` に固定して常駐へ渡す。常駐だけ `PORT` を変えたい場合は
+> `PORT=<番号> ./scripts/macos/setup.sh`（Mac）や
+> `$env:PORT='<番号>'; .\scripts\windows\setup.ps1`（Windows）のように
+> 環境変数を付けて再実行する
+> （`.env` の `PORT` は、常駐環境で明示的に上書きされていない場合にだけ使われる）。
 
 ## 開発
 
@@ -218,7 +308,9 @@ server/
   deps/             detect（実行ファイル探索）· messages（日本語の直し方）
   lib/              paths · exec · errors · http · logger · upload · reveal · cleanup
 client/src/         React（components / hooks / lib）
-scripts/macos/      setup.sh · uninstall.sh · plist と launcher のテンプレ · アイコン生成
+scripts/macos/      setup.sh · uninstall.sh · diagnose.sh · plist と launcher のテンプレ・アイコン生成
+scripts/windows/    setup.ps1 · uninstall.ps1 · diagnose.ps1 · run-server.ps1 · launcher · アイコン生成
+scripts/shared/     アイコン描画（macOS/Windows で共有する純関数）
 tests/              unit · integration · fixtures（ffmpeg で合成素材を生成）
 ```
 
@@ -233,6 +325,9 @@ tests/              unit · integration · fixtures（ffmpeg で合成素材を�
 | plist に PATH を明示注入 | launchd 配下では `.zshrc` の PATH が効かず、ffmpeg を見失う典型事故を防ぐ |
 | YouTube は 2 段構成（DL → ffmpeg） | 変換処理をファイル経路と共有でき、進捗も 0-50% / 50-100% に割れる |
 | アップロードは生ボディ | `multipart` だと数 GB がメモリに載る。ストリームで直接ディスクへ流す |
+| Windows はサービス化せずタスクスケジューラ | Windows サービスはユーザのデスクトップセッションを持たず、`~/Music` など対話ユーザのプロファイルに素直にアクセスできない。ログオントリガー + ユーザ権限（`LogonType Interactive`）なら launchd の `gui/$UID` と同じ発想で動く |
+| タスクスケジューラの再起動はログオン + 1分間隔の繰り返しトリガー | ネイティブの「失敗時再起動」機能は再起動回数に上限があり無期限にできない。動作中は `MultipleInstances = IgnoreNew` で多重起動しないため、繰り返しトリガーは実質「落ちたときだけ」効く簡易 watchdog になる |
+| node の実行パスを `env.ps1` に固定 | winget install 直後は PATH がそのセッションに反映されないことがある。plist に絶対パスを埋め込む Mac 版と同じ対策 |
 
 ### セキュリティ上の約束
 
