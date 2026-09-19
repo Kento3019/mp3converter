@@ -21,7 +21,7 @@
 | 7 | cleanup + テスト + カバレッジ | ✅ 完了 | 133 テスト通過。lines 83.8% / funcs 88.7% / branch 82.0%（閾値クリア） |
 | 8 | macOS 導入一式 | ⚠️ 実機未検証 | 全スクリプト `bash -n` 通過、テンプレ置換をドライラン検証、アイコン生成を実行確認 |
 | 9 | README + レビュー | ✅ 完了 | 利用者編 / 開発者編を記載。指摘 4 件をすべて修正し再検証 |
-| 10 | Windows 11 導入一式 | ⚠️ 実機未検証 | 開発環境が Linux（WSL2）のため PowerShell 自体を実行できていない。静的レビューのみ。詳細は下記「Windows 実機で必ず確認すること」 |
+| 10 | Windows 11 導入一式 | ⚠️ 実機で一部検証 | 実ユーザが Windows 11 実機で `setup.ps1` を実行し、`npm run build` が npm の既知の不具合（optional dependencies、[npm/cli#4828](https://github.com/npm/cli/issues/4828)）で失敗することを確認。`setup.ps1`/`setup.sh` 双方に自動リカバリ（`node_modules` + `package-lock.json` を作り直して再試行）を追加。**この自動リカバリ自体はまだ実機で再検証していない** |
 
 ## レビューでの指摘と対応
 
@@ -65,6 +65,7 @@
 一切実行できず、静的なコードレビューのみで用意した。特に次の点は
 実機でしか確認できないため、優先して検証すること。
 
+- [ ] `.\scripts\windows\setup.ps1` を再実行し、`npm run build` の自動リカバリ（node_modules + package-lock.json の作り直し）が最後まで通る（[npm/cli#4828](https://github.com/npm/cli/issues/4828) で実機にて 1 度失敗を確認済み。自動リカバリのコードパス自体は未検証）
 - [ ] `.\scripts\windows\setup.ps1` が**依存が無い状態から**完走し、最後にブラウザが開く（管理者権限を付けずに実行）
 - [ ] `winget install` が個々に UAC を求めてきても、その後の処理が続行する
 - [ ] タスクスケジューラの繰り返しトリガー（`Repetition.Duration = ''`）が本当に無期限に効くか（`Register-ScheduledTask` 実行後に `Get-ScheduledTask MP3Converter | fl *` で `Repetition` を確認）

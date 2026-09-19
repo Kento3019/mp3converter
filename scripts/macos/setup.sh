@@ -163,7 +163,31 @@ if [[ -f package-lock.json ]]; then
 else
   npm install
 fi
-npm run build
+
+BUILD_LOG="$(mktemp)"
+set +e
+npm run build 2>&1 | tee "$BUILD_LOG"
+BUILD_STATUS=${PIPESTATUS[0]}
+set -e
+
+if [[ "$BUILD_STATUS" -ne 0 ]]; then
+  # npm の既知の不具合（optional dependencies）。
+  # package-lock.json に該当プラットフォームのバイナリが記載されていても、
+  # npm ci が実際にはインストールしないことがある。
+  # https://github.com/npm/cli/issues/4828
+  # npm 自身が案内する通り、node_modules と package-lock.json を作り直せば直る。
+  if grep -qiE "native binding|optional dependencies" "$BUILD_LOG"; then
+    info "既知の npm の不具合（optional dependencies）を検知しました。node_modules を作り直します…"
+    rm -rf node_modules package-lock.json
+    npm install
+    npm run build
+    info "package-lock.json が更新されました。git で差分を確認し、問題なければコミットしてください。"
+  else
+    rm -f "$BUILD_LOG"
+    die "npm run build に失敗しました。上のログを確認してください。"
+  fi
+fi
+rm -f "$BUILD_LOG"
 ok "組み立てが終わりました"
 
 # youtube-dl-exec の同梱バイナリを確かめる。

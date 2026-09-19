@@ -148,6 +148,7 @@ tail -f ~/Library/Logs/mp3converter/error.log
 | Dock のアイコンで「セットアップが終わっていません」 | `setup.sh` が途中で止まっていて LaunchAgent が未登録 | `./scripts/macos/setup.sh` を再実行 |
 | 常駐が起動しない / アイコンでエラー | **`sudo` で `npm install` や `npm run dev` を実行し、`node_modules` と `dist` が root 所有になった**。常駐はユーザ権限で動くため読めない | `setup.sh` を再実行すると検出して持ち主を戻す。手動なら `sudo chown -R $(id -u):$(id -g) node_modules dist` |
 | `setup.sh` が yt-dlp で止まる | GitHub からのダウンロードに失敗 | 現在は自動で `brew install yt-dlp` にフォールバックする。手動なら `brew install yt-dlp` |
+| `npm run build` が `Cannot find native binding`（rolldown/vite）で失敗 | **npm の既知の不具合**（[npm/cli#4828](https://github.com/npm/cli/issues/4828)）。`package-lock.json` に該当プラットフォームのバイナリが記載されていても `npm ci` が実際にはインストールしないことがある | `setup.sh` が検知して `node_modules` と `package-lock.json` を作り直し、自動でリトライする。`package-lock.json` が更新されるので、差分は git で確認してコミットすること |
 | **手で起動すると動くのに、自動起動だけ即死する**（`active count = 0` / `state = spawn scheduled` を繰り返す） | **リポジトリを `~/Desktop` `~/Documents` `~/Downloads` に置いている**。macOS のプライバシー保護（TCC）により、launchd から起動したプロセスはこれらのフォルダを読めない。ターミナルからは Terminal.app に許可があるため動いてしまい、切り分けを誤らせる | 保護対象外へ移す。`mv <今の場所> ~/mp3converter && cd ~/mp3converter && ./scripts/macos/setup.sh` |
 | `last exit code = 78: EX_CONFIG`（登録はできるが起動しない。手動起動は通る） | **launchd がジョブを構成できていない。プログラムの異常ではない**。多くは `StandardOutPath`/`StandardErrorPath`（`~/Library/Logs/mp3converter/*.log`）が別ユーザ所有で開けないケース。以前 root で常駐させた名残 | `setup.sh` がログファイルの持ち主を確認し、開けなければ作り直す。手動なら `sudo rm -f ~/Library/Logs/mp3converter/*.log` |
 | `Bootstrap failed: 5: Input/output error` | ①同じラベルが既に登録されている ②そのラベルが `disable` されている ③**plist が group/other 書き込み可**（`chmod 777` などにすると launchd が拒否する。正しくは `644`） | `setup.sh` が 3 つとも自動で潰す。手動なら下の「手で直す」を実行 |
@@ -245,6 +246,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\windows\diagnose.ps1
 | アイコンで「セットアップが終わっていません」 | `setup.ps1` が途中で止まっていてタスク未登録 | `setup.ps1` を再実行 |
 | `setup.ps1` が `winget が見つかりません` で止まる | 「アプリ インストーラー」が古い/未導入 | Microsoft Store で更新してから再実行 |
 | `setup.ps1` が yt-dlp で止まる | ダウンロードに失敗 | 現在は自動で `winget install yt-dlp.yt-dlp` にフォールバックする |
+| `npm run build` が `Cannot find native binding`（rolldown/vite）で失敗 | **npm の既知の不具合**（[npm/cli#4828](https://github.com/npm/cli/issues/4828)）。`package-lock.json` に Windows 用バイナリが記載されていても `npm ci` が実際にはインストールしないことがある | `setup.ps1` が検知して `node_modules` と `package-lock.json` を作り直し、自動でリトライする。`package-lock.json` が更新されるので、差分は git で確認してコミットすること |
 | ターミナルでは動くのに常駐だと ffmpeg / node が見つからない | `winget` install 直後は PATH がそのセッションに反映されない、または常駐が別セッションで PATH を再構成できていない | node の実パスは `%LOCALAPPDATA%\mp3converter\env.ps1` に固定済み。ffmpeg/yt-dlp は `setup.ps1` を再実行して PATH を確定させる |
 | `.ps1 を実行できません（実行ポリシー）` | Windows の既定ポリシーがスクリプト実行を止めている | `-ExecutionPolicy Bypass` を付けて実行する（上記コマンドの通り）。システム全体のポリシーは変更しない |
 | タスクの `LastTaskResult` が 0 以外 | node の異常終了、または `dist/server/index.js` 未ビルド | `npm run build` を実行してから `Start-ScheduledTask -TaskName MP3Converter` |

@@ -99,8 +99,32 @@ if (Test-Path (Join-Path $RepoDir 'package-lock.json')) {
 }
 if ($LASTEXITCODE -ne 0) { Die 'npm install に失敗しました。上のログを確認してください。' }
 
-npm run build
-if ($LASTEXITCODE -ne 0) { Die 'npm run build に失敗しました。上のログを確認してください。' }
+npm run build 2>&1 | Tee-Object -Variable buildOutput
+$buildExitCode = $LASTEXITCODE
+$buildLog = $buildOutput -join "`n"
+
+if ($buildExitCode -ne 0) {
+  # npm の既知の不具合（optional dependencies）。
+  # package-lock.json に該当プラットフォームのバイナリが記載されていても、
+  # npm ci が実際にはインストールしないことがある。
+  # https://github.com/npm/cli/issues/4828
+  # npm 自身が案内する通り、node_modules と package-lock.json を作り直せば直る。
+  if ($buildLog -match 'native binding' -or $buildLog -match 'optional dependencies') {
+    Info '既知の npm の不具合（optional dependencies）を検知しました。node_modules を作り直します…'
+    Remove-Item -Recurse -Force (Join-Path $RepoDir 'node_modules') -ErrorAction SilentlyContinue
+    Remove-Item -Force (Join-Path $RepoDir 'package-lock.json') -ErrorAction SilentlyContinue
+
+    npm install
+    if ($LASTEXITCODE -ne 0) { Die 'npm install に失敗しました（作り直し後）。上のログを確認してください。' }
+
+    npm run build
+    if ($LASTEXITCODE -ne 0) { Die 'npm run build に失敗しました（作り直し後も）。上のログを確認してください。' }
+
+    Info 'package-lock.json が更新されました。git で差分を確認し、問題なければコミットしてください。'
+  } else {
+    Die 'npm run build に失敗しました。上のログを確認してください。'
+  }
+}
 Ok '組み立てが終わりました'
 
 # -------------------------------------------------- 4. yt-dlp を確認する
