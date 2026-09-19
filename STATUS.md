@@ -62,18 +62,21 @@
 ## Windows 実機で見つかった不具合
 
 開発環境（Linux/WSL2）には PowerShell が無く、`setup.ps1` は一度も実行できないまま
-最初のバージョンを用意した。実ユーザに実機で試してもらったところ、2 回の実行で
-2 件の実バグが見つかった。
+最初のバージョンを用意した。実ユーザに実機で試してもらい、3 回のやり取りで
+3 件の実バグが見つかった。
 
-| # | 症状 | 原因 | 対応 | 再検証 |
+| # | 症状 | 原因 | 対応 | 状態 |
 |---|---|---|---|---|
-| 1 | `npm run build` が `vite build` の `rolldown` ネイティブバインディング読み込みで失敗 | npm の既知の不具合（optional dependencies、[npm/cli#4828](https://github.com/npm/cli/issues/4828)）。`package-lock.json` に Windows 用バイナリが記載されていても `npm ci` が実際にはインストールしないことがある | `node_modules` + `package-lock.json` を作り直して `npm install` から再試行する自動リカバリを追加（`setup.ps1`/`setup.sh` 両方） | ⚠️ 未検証（下の #2 に阻まれて発動しなかった） |
-| 2 | 上のリカバリを追加した版を再実行しても、**リカバリに入る前に**スクリプトが無言で終了 | `$ErrorActionPreference = 'Stop'` を設定したまま `npm run build 2>&1 \| Tee-Object` で stderr を結合していた。Windows PowerShell は結合された stderr 行を `ErrorRecord` として扱うため、`node` の失敗時スタックトレース（stderr）1 行目で即座にスクリプト全体が終了していた（`Die` すら呼ばれない） | 該当呼び出しの間だけ `$ErrorActionPreference = 'Continue'` に戻すよう修正 | ⚠️ 未検証 |
-| （付随） | `npm warn EBADENGINE`（vite/rolldown が要求する `>=22.12.0` に対し、winget 導入の Node が `22.11.0`） | winget の `OpenJS.NodeJS.LTS` マニフェスト更新が遅れていた可能性 | Node バージョンを確認し、`22.12.0` 未満なら `winget upgrade` で更新する処理を追加 | ⚠️ 未検証。#1 の根本原因かは不明（このバージョン不一致と無関係に #1 の npm バグ自体は既知） |
+| 1 | `npm run build` が `vite build` の `rolldown` ネイティブバインディング読み込みで失敗 | npm の既知の不具合（optional dependencies、[npm/cli#4828](https://github.com/npm/cli/issues/4828)）。`package-lock.json` に Windows 用バイナリが記載されていても `npm ci` が実際にはインストールしないことがある | `node_modules` + `package-lock.json` を作り直して `npm install` から再試行する自動リカバリを追加（`setup.ps1`/`setup.sh` 両方） | ✅ 実機で解消を確認（`setup.ps1` が完走） |
+| 2 | 上のリカバリを追加した版を再実行しても、**リカバリに入る前に**スクリプトが無言で終了 | `$ErrorActionPreference = 'Stop'` を設定したまま `npm run build 2>&1 \| Tee-Object` で stderr を結合していた。Windows PowerShell は結合された stderr 行を `ErrorRecord` として扱うため、`node` の失敗時スタックトレース（stderr）1 行目で即座にスクリプト全体が終了していた（`Die` すら呼ばれない） | 該当呼び出しの間だけ `$ErrorActionPreference = 'Continue'` に戻すよう修正 | ✅ 実機で解消を確認 |
+| （付随） | `npm warn EBADENGINE`（vite/rolldown が要求する `>=22.12.0` に対し、winget 導入の Node が `22.11.0`） | winget の `OpenJS.NodeJS.LTS` マニフェスト更新が遅れていた可能性 | Node バージョンを確認し、`22.12.0` 未満なら `winget upgrade` で更新する処理を追加 | ✅ `setup.ps1` はここも通過して完走 |
+| 3 | 変換は成功するが「フォルダを開く」を押してもエクスプローラが開かない（エラー表示も無い） | `server/lib/reveal.ts` の Windows 分岐が `/select,${path}` を 1 引数に結合していた。パスに空白があると Windows の自動クォートが `/select,` ごと括ってしまい explorer の独自パーサが読めない。加えて `run('explorer', …).catch(() => undefined)` が spawn 失敗を握りつぶしており、失敗してもクライアントには常に `revealed: true` が返っていた | `explorer.exe` をフルパス（`%SystemRoot%`）で起動し、`/select,` と対象パスを別引数に分離。spawn 失敗は `logger.warn` でログに残すよう変更 | ⚠️ 未検証（次回 `setup.ps1` 再実行後に確認） |
+| （付随） | 上記 3 を直しても、`setup.ps1` を再実行しただけでは反映されない可能性 | `Unregister-ScheduledTask` はタスクの登録を消すだけで、既に動いている node プロセスは止めない（macOS の `launchctl bootout` と違う）。そのため再登録しても古い `dist/` を読み込んだプロセスが動き続ける | タスク再登録の前に `Stop-ScheduledTask` を追加し、既存プロセスを確実に止めてから新しい `dist/` で起動し直すようにした | ⚠️ 未検証 |
 
 ## Windows 11 実機で必ず確認すること
 
-- [ ] `.\scripts\windows\setup.ps1` を再実行し、上の 3 件の修正がすべて機能して最後まで通る
+- [ ] `.\scripts\windows\setup.ps1` を再実行し、「フォルダを開く」で実際にエクスプローラが開く
+- [ ] 再実行後、古い node プロセスが残らず新しい `dist/` で起動し直っている（`Stop-ScheduledTask` の効果）
 - [ ] `.\scripts\windows\setup.ps1` が**依存が無い状態から**完走し、最後にブラウザが開く（管理者権限を付けずに実行）
 - [ ] `winget install` が個々に UAC を求めてきても、その後の処理が続行する
 - [ ] タスクスケジューラの繰り返しトリガー（`Repetition.Duration = ''`）が本当に無期限に効くか（`Register-ScheduledTask` 実行後に `Get-ScheduledTask MP3Converter | fl *` で `Repetition` を確認）

@@ -225,6 +225,11 @@ Ok "ショートカット: $ShortcutPath"
 
 Step 'パソコン起動時に自動で立ち上がるよう登録しています'
 
+# Unregister-ScheduledTask はタスクの「登録」を消すだけで、既に動いている
+# node プロセスは止めない（macOS の launchctl bootout と違う点）。
+# 止めないまま再登録すると、この後 npm run build で作り直した dist/ が
+# 実際には読み込まれず「更新したのに古い挙動のまま」になる。
+Stop-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
 Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false -ErrorAction SilentlyContinue
 
 $action = New-ScheduledTaskAction -Execute 'powershell.exe' `

@@ -1,7 +1,9 @@
 import { existsSync } from 'node:fs'
+import { join } from 'node:path'
 import { config } from '../config.js'
 import { notFound } from './errors.js'
 import { run } from './exec.js'
+import { logger } from './logger.js'
 import { isInside } from './paths.js'
 
 /**
@@ -23,8 +25,18 @@ export async function revealInFileManager(targetPath: string): Promise<void> {
   }
 
   if (process.platform === 'win32') {
-    // explorer は成功時も 1 を返すため、終了コードは見ない。
-    await run('explorer', [`/select,${targetPath}`], { timeoutMs: 10_000 }).catch(() => undefined)
+    // フルパスで起動する（PATH 検索に頼らない）。
+    // '/select,' と対象パスは別々の引数で渡す。1 トークンに結合すると、
+    // パスに空白を含む場合 Windows の自動クォートが「"/select,C:\...\My File.mp3"」の
+    // ように /select, ごと括ってしまい、explorer 側の独自パーサが解釈できないことがある。
+    const explorer = join(process.env.SystemRoot ?? 'C:\\Windows', 'explorer.exe')
+    // explorer は成功時も非 0 を返すことがあるため終了コードは見ない。
+    // ただし spawn 自体の失敗（ENOENT 等）は握りつぶさずログに残す
+    // （以前は catch で完全に握りつぶしており、失敗してもクライアントには
+    // revealed: true が返っていた）。
+    await run(explorer, ['/select,', targetPath], { timeoutMs: 10_000 }).catch((error: unknown) => {
+      logger.warn('explorer の起動に失敗', error)
+    })
     return
   }
 
